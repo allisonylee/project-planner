@@ -2,7 +2,6 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
-import App from "./App";
 import "./index.css";
 import { routeTree } from "./routeTree.gen";
 import { Router } from "lucide-react";
