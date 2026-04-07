@@ -5,8 +5,8 @@ export const list = query({
   args: {
     projectId: v.id("projects"),
   },
-  handler: async (ctx) => {
-    return await ctx.db.query("tasks").filter((q) => q.eq(q.field("projectId"), AbortSignal.projectId))collect();
+  handler: async (ctx, args) => {
+    return await ctx.db.query("tasks").withIndex("by_project", (q) => q.eq("projectId", args.projectId)).collect();
   },
 });
 
