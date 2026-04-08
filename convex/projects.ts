@@ -4,7 +4,7 @@ import { v } from "convex/values";
 export const list = query({
     args: {},
     handler: async (ctx) => {
-        return await ctx.db.query("projects").collect();
+        return await ctx.db.query("projects").withIndex("by_deletedAt", (q) => q.eq("deletedAt", undefined)).collect();
     }
 })
 
@@ -13,7 +13,8 @@ export const get = query({
         id: v.id("projects")
     },
     handler: async (ctx, args) => {
-        return await ctx.db.get(args.id);
+        const project = await ctx.db.get(args.id);
+        return project && project.deletedAt === undefined ? project : null;
     }
 })
 
@@ -61,15 +62,6 @@ export const remove = mutation({
         id: v.id("projects"),
     },
     handler: async (ctx, args) => {
-        const tasks = await ctx.db
-            .query("tasks")
-            .withIndex("by_project", (q) => q.eq("projectId", args.id))
-            .collect();
-        
-        for (const task of tasks) {
-            await ctx.db.delete(task._id);
-        }
-
-        await ctx.db.delete(args.id);
+        await ctx.db.patch(args.id, {deletedAt: Date.now()});
     }
 })
