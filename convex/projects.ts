@@ -1,22 +1,29 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
+
+const CASCADE_DELETE_BATCH_SIZE = 100;
+
 
 export const list = query({
-    args: {},
-    handler: async (ctx) => {
-        return await ctx.db.query("projects").withIndex("by_deletedAt", (q) => q.eq("deletedAt", undefined)).collect();
-    }
-})
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("projects")
+      .withIndex("by_deletedAt", (q) => q.eq("deletedAt", undefined))
+      .collect();
+  },
+});
 
 export const get = query({
-    args: {
-        id: v.id("projects")
-    },
-    handler: async (ctx, args) => {
-        const project = await ctx.db.get(args.id);
-        return project && project.deletedAt === undefined ? project : null;
-    }
-})
+  args: {
+    id: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.id);
+    return project && project.deletedAt === undefined ? project : null;
+  },
+});
 
 export const create = mutation({
     args: {
@@ -58,10 +65,36 @@ export const update = mutation({
 })
 
 export const remove = mutation({
+  args: {
+    id: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { deletedAt: Date.now() });
+  },
+});
+
+
+export const deleteProjectCascade = internalMutation({
     args: {
         id: v.id("projects"),
     },
     handler: async (ctx, args) => {
-        await ctx.db.patch(args.id, {deletedAt: Date.now()});
+        const tasks = await ctx.db
+            .query("tasks")
+            .withIndex("by_project", (q) => q.eq("projectId", args.id))
+            .take(CASCADE_DELETE_BATCH_SIZE);
+
+        for (const task of tasks) {
+            await ctx.db.delete(task._id);
+        }
+
+        if (tasks.length === CASCADE_DELETE_BATCH_SIZE) {
+            await ctx.scheduler.runAfter(0, internal.projects.deleteProjectCascade, {
+                id: args.id,
+            });
+            return;
+        }
+
+        await ctx.db.delete(args.id);
     }
 })
