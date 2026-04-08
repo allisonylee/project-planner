@@ -1,17 +1,22 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { internal } from "./_generated/api";
+
 
 const CASCADE_DELETE_BATCH_SIZE = 100;
 
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
     return await ctx.db
       .query("projects")
       .withIndex("by_deletedAt", (q) => q.eq("deletedAt", undefined))
-      .collect();
+      .order("desc")
+      .paginate(args.paginationOpts);
   },
 });
 
